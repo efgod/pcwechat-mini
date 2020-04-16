@@ -3,7 +3,6 @@
 #include <string>
 #include <strstream>
 #pragma comment(lib, "Version.lib")
-using namespace std;
 
 long weChatWinDllAddr = 0;
 std::string weChatWinDllVersion = "";
@@ -32,7 +31,7 @@ std::string getWeChatWinDllVersion() {
         return "";
     }
 
-    string asVer = "";
+    std::string asVer = "";
     VS_FIXEDFILEINFO* vsInfo;
     unsigned int fileInfoSize = sizeof(VS_FIXEDFILEINFO);
     int verInfoSize = GetFileVersionInfoSize(versionFilePath, NULL);
@@ -44,7 +43,7 @@ std::string getWeChatWinDllVersion() {
                 int minor_ver = vsInfo->dwFileVersionMS & 0x0000FFFF;
                 int build_num = (vsInfo->dwFileVersionLS >> 16) & 0x0000FFFF;
                 int revision_num = vsInfo->dwFileVersionLS & 0x0000FFFF;
-                strstream wxVer;
+                std::strstream wxVer;
                 wxVer << major_ver << "." << minor_ver << "." << build_num << "." << revision_num;
                 wxVer >> asVer;
             }

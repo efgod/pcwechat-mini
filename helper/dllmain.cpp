@@ -22,6 +22,7 @@ std::string v_27188 = "2.7.1.88";
 std::string v_280121 = "2.8.0.121";
 std::string v_29069 = "2.9.0.69";
 std::string v_29095 = "2.9.0.95";
+std::string v_290105 = "2.9.0.105";
 
 
 void init();
@@ -62,12 +63,12 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 }
 
 void init() {
-
     std::string version = getWeChatWinDllVersion();
     if (!(version == v_27188
         || version == v_280121
         || version == v_29069
-        || version == v_29095)) {
+        || version == v_29095 
+        || version == v_290105)) {
         wchar_t tips[0x20] = { 0 };
         swprintf_s(tips, L"不支持该版本:%s", stringToWchar(version));
         MessageBox(NULL, tips, L"ERROR", 0);
@@ -87,6 +88,121 @@ void init() {
 
 void inLineHook() {
     hookMsg();
+}
+
+__declspec(naked) void receiveMsgDeclspec() {
+    __asm {
+        mov ecx, receiveMsgParam
+        pushad
+        push esi
+        call receiveMsgJump
+        pop esi
+        popad
+        jmp receiveMsgJmpAddr
+    }
+}
+
+void hookMsg() {
+    std::string version = getWeChatWinDllVersion();
+    long base = getWeChatWinAddr();
+    long receiveMsgHookAddr = 0;
+    if (version == v_27188) {
+        receiveMsgParam = base + 0x13971B8;
+        receiveMsgHookAddr = base + 0x325373;
+    }
+    else if (version == v_280121) {
+        receiveMsgParam = base + 0x1633C98;
+        receiveMsgHookAddr = base + 0x354AA3;
+    }
+    else if (version == v_29069) {
+        receiveMsgParam = base + 0x16C9148;
+        receiveMsgHookAddr = base + 0x376DEF;
+    }
+    else if (version == v_29095) {
+        receiveMsgParam = base + 0x16CC128;
+        receiveMsgHookAddr = base + 0x377F3F;
+    }
+    else if (version == v_290105) {
+        receiveMsgParam = base + 0x16CC1C8;
+        receiveMsgHookAddr = base + 0x377E2F;
+    }
+    receiveMsgJmpAddr = receiveMsgHookAddr + 5;
+    BYTE msgJmpCode[5] = { 0xE9 };
+    *(long*)&msgJmpCode[1] = (long)receiveMsgDeclspec - receiveMsgHookAddr - 5;
+    WriteProcessMemory(GetCurrentProcess(), (LPVOID)receiveMsgHookAddr, msgJmpCode, 5, NULL);
+    logChar("消息拦截已开启");
+}
+
+void receiveMsgJump(long esi) {
+
+    std::string version = getWeChatWinDllVersion();
+    WxChatMsg msg = { 0 };
+    if (version == v_27188) {
+        /*
+        -0xB8 unknownStr
+        -0xCC senderWxid
+        -0x178 content
+        -0x1A0 fromWxid
+        -0x1AC status
+        -0x1B0 type
+        */
+        msg.type = *(long*)(esi - 0x1B0);
+        msg.status = *(long*)(esi - 0x1AC);
+        msg.fromWxid = (wchar_t*)(*((long*)(esi - 0x1A0)));
+        msg.content = (wchar_t*)(*((long*)(esi - 0x178)));
+        msg.senderWxid = (wchar_t*)(*((long*)(esi - 0xCC)));
+        msg.unknownStr = (wchar_t*)(*((long*)(esi - 0xB8)));
+    }
+    else if (version == v_280121) {
+        /*
+        -0xB4 unknownStr
+        -0xC8 senderWxid
+        -0x178 content
+        -0x1A0 fromWxid
+        -0x1AC status
+        -0x1B0 type
+        */
+        msg.type = *(long*)(esi - 0x1B0);
+        msg.status = *(long*)(esi - 0x1AC);
+        msg.fromWxid = (wchar_t*)(*((long*)(esi - 0x1A0)));
+        msg.content = (wchar_t*)(*((long*)(esi - 0x178)));
+        msg.senderWxid = (wchar_t*)(*((long*)(esi - 0xC8)));
+        msg.unknownStr = (wchar_t*)(*((long*)(esi - 0xB4)));
+    }
+    else if (version == v_29069 || version == v_29095 || version == v_290105) {
+        /*
+        -0xB8 unknownStr
+        -0xCC senderWxid
+        -0x1A8 content
+        -0x1D0 fromWxid
+        -0x1DC status
+        -0x1E0 type
+        */
+        msg.type = *(long*)(esi - 0x1E0);
+        msg.status = *(long*)(esi - 0x1DC);
+        msg.fromWxid = (wchar_t*)(*((long*)(esi - 0x1D0)));
+        msg.content = (wchar_t*)(*((long*)(esi - 0x1A8)));
+        msg.senderWxid = (wchar_t*)(*((long*)(esi - 0xCC)));
+        msg.unknownStr = (wchar_t*)(*((long*)(esi - 0xB8)));
+    }
+
+    wchar_t msgwstr[0x20000] = { 0 };
+    swprintf_s(msgwstr, L"类型：%d | 状态：%d | 来源wxid：%ls | 内容：%ls | 发送者wxid：%ls | 未知字符串：%ls",
+        msg.type, msg.status, msg.fromWxid, msg.content, msg.senderWxid, msg.unknownStr);
+    logWchar(msgwstr);
+
+    DynamicJsonBuffer jb;
+    JsonObject& msgJson = jb.createObject();
+    msgJson["cmd"] = CMD_PUSH_MESSAGE;
+    msgJson["type"] = msg.type;
+    msgJson["status"] = msg.status;
+    msgJson["fromWxid"] = unicodeToUtf8(msg.fromWxid);
+    msgJson["content"] = unicodeToUtf8(msg.content);
+    msgJson["senderWxid"] = unicodeToUtf8(msg.senderWxid);
+
+    char msgstr[0x6000] = { 0 };
+    msgJson.printTo(msgstr);
+    pushMsg(msgstr);
 }
 
 static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
@@ -144,115 +260,4 @@ void pushMsg(const char* msg) {
         }
         mg_send_websocket_frame(c, WEBSOCKET_OP_TEXT, buf, strlen(buf));
     }
-}
-
-__declspec(naked) void receiveMsgDeclspec() {
-    __asm {
-        mov ecx, receiveMsgParam
-        pushad
-        push esi
-        call receiveMsgJump
-        pop esi
-        popad
-        jmp receiveMsgJmpAddr
-    }
-}
-
-void hookMsg() {
-    std::string version = getWeChatWinDllVersion();
-    long base = getWeChatWinAddr();
-    long receiveMsgHookAddr = 0;
-    if (version == v_27188) {
-        receiveMsgParam = base + 0x13971B8;
-        receiveMsgHookAddr = base + 0x325373;
-    }
-    else if (version == v_280121) {
-        receiveMsgParam = base + 0x1633C98;
-        receiveMsgHookAddr = base + 0x354AA3;
-    }
-    else if (version == v_29069) {
-        receiveMsgParam = base + 0x16C9148;
-        receiveMsgHookAddr = base + 0x376DEF;
-    }
-    else if (version == v_29095) {
-        receiveMsgParam = base + 0x16CC128;
-        receiveMsgHookAddr = base + 0x377F3F;
-    }
-    receiveMsgJmpAddr = receiveMsgHookAddr + 5;
-    BYTE msgJmpCode[5] = { 0xE9 };
-    *(long*)&msgJmpCode[1] = (long)receiveMsgDeclspec - receiveMsgHookAddr - 5;
-    WriteProcessMemory(GetCurrentProcess(), (LPVOID)receiveMsgHookAddr, msgJmpCode, 5, NULL);
-    logChar("消息拦截已开启");
-}
-
-void receiveMsgJump(long esi) {
-
-    std::string version = getWeChatWinDllVersion();
-    WxChatMsg msg = { 0 };
-    if (version == v_27188) {
-        /*
-        -0xB8 unknownStr
-        -0xCC senderWxid
-        -0x178 content
-        -0x1A0 fromWxid
-        -0x1AC status
-        -0x1B0 type
-        */
-        msg.type = *(long*)(esi - 0x1B0);
-        msg.status = *(long*)(esi - 0x1AC);
-        msg.fromWxid = (wchar_t*)(*((long*)(esi - 0x1A0)));
-        msg.content = (wchar_t*)(*((long*)(esi - 0x178)));
-        msg.senderWxid = (wchar_t*)(*((long*)(esi - 0xCC)));
-        msg.unknownStr = (wchar_t*)(*((long*)(esi - 0xB8)));
-    }
-    else if (version == v_280121) {
-        /*
-        -0xB4 unknownStr
-        -0xC8 senderWxid
-        -0x178 content
-        -0x1A0 fromWxid
-        -0x1AC status
-        -0x1B0 type
-        */
-        msg.type = *(long*)(esi - 0x1B0);
-        msg.status = *(long*)(esi - 0x1AC);
-        msg.fromWxid = (wchar_t*)(*((long*)(esi - 0x1A0)));
-        msg.content = (wchar_t*)(*((long*)(esi - 0x178)));
-        msg.senderWxid = (wchar_t*)(*((long*)(esi - 0xC8)));
-        msg.unknownStr = (wchar_t*)(*((long*)(esi - 0xB4)));
-    }
-    else if (version == v_29069 || version == v_29095) {
-        /*
-        -0xB8 unknownStr
-        -0xCC senderWxid
-        -0x1A8 content
-        -0x1D0 fromWxid
-        -0x1DC status
-        -0x1E0 type
-        */
-        msg.type = *(long*)(esi - 0x1E0);
-        msg.status = *(long*)(esi - 0x1DC);
-        msg.fromWxid = (wchar_t*)(*((long*)(esi - 0x1D0)));
-        msg.content = (wchar_t*)(*((long*)(esi - 0x1A8)));
-        msg.senderWxid = (wchar_t*)(*((long*)(esi - 0xCC)));
-        msg.unknownStr = (wchar_t*)(*((long*)(esi - 0xB8)));
-    }
-
-    wchar_t msgwstr[0x20000] = { 0 };
-    swprintf_s(msgwstr, L"类型：%d | 状态：%d | 来源wxid：%ls | 内容：%ls | 发送者wxid：%ls | 未知字符串：%ls",
-        msg.type, msg.status, msg.fromWxid, msg.content, msg.senderWxid, msg.unknownStr);
-    logWchar(msgwstr);
-
-    DynamicJsonBuffer jb;
-    JsonObject& msgJson = jb.createObject();
-    msgJson["cmd"] = CMD_PUSH_MESSAGE;
-    msgJson["type"] = msg.type;
-    msgJson["status"] = msg.status;
-    msgJson["fromWxid"] = unicodeToUtf8(msg.fromWxid);
-    msgJson["content"] = unicodeToUtf8(msg.content);
-    msgJson["senderWxid"] = unicodeToUtf8(msg.senderWxid);
-
-    char msgstr[0x6000] = { 0 };
-    msgJson.printTo(msgstr);
-    pushMsg(msgstr);
 }
