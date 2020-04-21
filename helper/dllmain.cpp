@@ -23,6 +23,7 @@ std::string v_280121 = "2.8.0.121";
 std::string v_29069 = "2.9.0.69";
 std::string v_29095 = "2.9.0.95";
 std::string v_290105 = "2.9.0.105";
+std::string v_290112 = "2.9.0.112";
 
 
 void init();
@@ -67,8 +68,9 @@ void init() {
     if (!(version == v_27188
         || version == v_280121
         || version == v_29069
-        || version == v_29095 
-        || version == v_290105)) {
+        || version == v_29095
+        || version == v_290105 
+        || version == v_290112)) {
         wchar_t tips[0x20] = { 0 };
         swprintf_s(tips, L"不支持该版本:%s", stringToWchar(version));
         MessageBox(NULL, tips, L"ERROR", 0);
@@ -126,6 +128,10 @@ void hookMsg() {
         receiveMsgParam = base + 0x16CC1C8;
         receiveMsgHookAddr = base + 0x377E2F;
     }
+    else if (version == v_290112) {
+        receiveMsgParam = base + 0x16CC1A8;
+        receiveMsgHookAddr = base + 0x377EBF;
+    }
     receiveMsgJmpAddr = receiveMsgHookAddr + 5;
     BYTE msgJmpCode[5] = { 0xE9 };
     *(long*)&msgJmpCode[1] = (long)receiveMsgDeclspec - receiveMsgHookAddr - 5;
@@ -169,7 +175,10 @@ void receiveMsgJump(long esi) {
         msg.senderWxid = (wchar_t*)(*((long*)(esi - 0xC8)));
         msg.unknownStr = (wchar_t*)(*((long*)(esi - 0xB4)));
     }
-    else if (version == v_29069 || version == v_29095 || version == v_290105) {
+    else if (version == v_29069 
+        || version == v_29095 
+        || version == v_290105
+        || version == v_290112) {
         /*
         -0xB8 unknownStr
         -0xCC senderWxid
