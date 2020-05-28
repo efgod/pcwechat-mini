@@ -71,8 +71,10 @@ void init() {
         || version == v_29095
         || version == v_290105 
         || version == v_290112)) {
+		wchar_t* verWChar = stringToWchar(version);
         wchar_t tips[0x20] = { 0 };
-        swprintf_s(tips, L"不支持该版本:%s", stringToWchar(version));
+        swprintf_s(tips, L"不支持该版本:%s", verWChar);
+		delete[] verWChar;
         MessageBox(NULL, tips, L"ERROR", 0);
         return;
     }
@@ -205,13 +207,20 @@ void receiveMsgJump(long esi) {
     msgJson["cmd"] = CMD_PUSH_MESSAGE;
     msgJson["type"] = msg.type;
     msgJson["status"] = msg.status;
-    msgJson["fromWxid"] = unicodeToUtf8(msg.fromWxid);
-    msgJson["content"] = unicodeToUtf8(msg.content);
-    msgJson["senderWxid"] = unicodeToUtf8(msg.senderWxid);
+	char* fromWxidChar = unicodeToUtf8(msg.fromWxid);
+	char* contentChar = unicodeToUtf8(msg.content);
+	char* senderWxid = unicodeToUtf8(msg.senderWxid);
+    msgJson["fromWxid"] = fromWxidChar;
+    msgJson["content"] = contentChar;
+    msgJson["senderWxid"] = senderWxid;
 
     char msgstr[0x6000] = { 0 };
     msgJson.printTo(msgstr);
     pushMsg(msgstr);
+
+	free(fromWxidChar);
+	free(contentChar);
+	free(senderWxid);
 }
 
 static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
@@ -224,7 +233,11 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
             if (cmd == CMD_SEND_TEXT) {
                 const char* wxid = msg["wxid"].as<char*>();
                 const char* content = msg["content"].as<char*>();
-                sendText(utf8ToUnicode(wxid), utf8ToUnicode(content));
+				wchar_t* wxidWChar = utf8ToUnicode(wxid);
+				wchar_t* contentWChar = utf8ToUnicode(content);
+                sendText(wxidWChar, contentWChar);
+				free(wxidWChar);
+				free(contentWChar);
             }
         }
     }
@@ -239,12 +252,13 @@ void startWs() {
     mg_mgr_init(&mgr, NULL);
 
     char c_port[] = "9898";
-    wchar_t* w_port = utf8ToUnicode(c_port);
 
     nc = mg_bind_opt(&mgr, c_port, ev_handler, opts);
     if (NULL == nc) {
+		wchar_t* w_port = utf8ToUnicode(c_port);
         wchar_t errormsg[0x100] = { 0 };
         swprintf_s(errormsg, L"端口绑定失败%s", w_port);
+		free(w_port);
         MessageBox(NULL, errormsg, L"ERROR", 0);
         return;
     }

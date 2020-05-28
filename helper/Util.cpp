@@ -31,6 +31,9 @@ void logChar(const char* str) {
     write.close();
 }
 
+/*
+free(utf8)
+*/
 char* unicodeToUtf8(wchar_t* unicode) {
     int len;
     len = WideCharToMultiByte(CP_UTF8, 0, unicode, -1, NULL, 0, NULL, NULL);
@@ -42,6 +45,9 @@ char* unicodeToUtf8(wchar_t* unicode) {
     return utf8;
 }
 
+/*
+free(result)
+*/
 wchar_t* utf8ToUnicode(const char* str) {
     wchar_t* result;
     int len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
@@ -53,12 +59,14 @@ wchar_t* utf8ToUnicode(const char* str) {
     return result;
 }
 
+/*
+delete[] wstr;
+*/
 wchar_t* stringToWchar(std::string str) {
     int strSize = (int)(str.length() + 1);
     wchar_t* wstr = new wchar_t[strSize];
     MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, wstr, strSize);
     return wstr;
-    delete[] wstr;
 }
 
 char* getCurrentTimeStr()

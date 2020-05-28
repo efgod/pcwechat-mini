@@ -23,9 +23,6 @@ INT_PTR CALLBACK Dlgproc(
 void injectPid(long pid);
 string getDllPath();
 
-char* unicodeToUtf8(wchar_t* unicode);
-wchar_t* utf8ToUnicode(const char* str);
-
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPWSTR    lpCmdLine,
@@ -96,25 +93,4 @@ string getDllPath() {
 		return "";
 	}
 	return string(dllPath);
-}
-
-char* unicodeToUtf8(wchar_t* unicode) {
-	int len = WideCharToMultiByte(CP_UTF8, 0, unicode, -1, NULL, 0, NULL, NULL);
-	char* utf8 = (char*)malloc(len + 1);
-	if (utf8 != 0) {
-		memset(utf8, 0, len + 1);
-	}
-	WideCharToMultiByte(CP_UTF8, 0, unicode, -1, utf8, len, NULL, NULL);
-	return utf8;
-}
-
-wchar_t* utf8ToUnicode(const char* str) {
-	wchar_t* result;
-	int len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
-	result = (wchar_t*)malloc((len + 1) * sizeof(wchar_t));
-	if (result != 0) {
-		memset(result, 0, (len + 1) * sizeof(wchar_t));
-	}
-	MultiByteToWideChar(CP_UTF8, 0, str, -1, (LPWSTR)result, len);
-	return result;
 }
